@@ -97,12 +97,130 @@ install_docker() {
     curl -fsSL https://get.docker.com -o get-docker.sh
 
     print_info "Installing Docker..."
-    sudo sh get-docker.sh
 
-    print_info "Cleaning up installation script..."
-    rm get-docker.sh
+    # Try installing Docker with error handling
+    if sudo sh get-docker.sh; then
+        print_info "Cleaning up installation script..."
+        rm get-docker.sh
+        print_info "✓ Docker installed: $(docker --version)"
+        return 0
+    fi
 
-    print_info "✓ Docker installed: $(docker --version)"
+    # Docker installation failed - offer workarounds
+    print_error "Docker installation failed!"
+    echo ""
+    print_warning "This is often caused by temporary issues with Docker's package repository"
+    echo ""
+
+    while true; do
+        echo "Choose a workaround:"
+        echo ""
+        echo "  1) Retry installation (wait 30s and try again)"
+        echo "     Use if: Temporary repository sync issue"
+        echo ""
+        echo "  2) Install docker.io from Ubuntu repositories"
+        echo "     Use if: You want stable Ubuntu-packaged Docker"
+        echo "     Note: May be an older version"
+        echo ""
+        echo "  3) Manual containerd version selection"
+        echo "     Use if: Specific containerd package is missing"
+        echo "     Note: Advanced option"
+        echo ""
+        echo "  4) Skip Docker installation"
+        echo ""
+        read -p "Select option (1-4): " choice
+
+        case $choice in
+            1)
+                print_info "Waiting 30 seconds before retry..."
+                sleep 30
+                print_info "Retrying Docker installation..."
+                if sudo sh get-docker.sh; then
+                    print_info "Cleaning up installation script..."
+                    rm get-docker.sh
+                    print_info "✓ Docker installed: $(docker --version)"
+                    return 0
+                else
+                    print_error "Retry failed. Try another option."
+                    echo ""
+                fi
+                ;;
+            2)
+                print_info "Installing docker.io from Ubuntu repositories..."
+                rm get-docker.sh
+                sudo apt update
+                sudo apt install -y docker.io docker-compose
+
+                if command -v docker &> /dev/null; then
+                    print_info "✓ Docker installed: $(docker --version)"
+                    return 0
+                else
+                    print_error "Installation failed. Try another option."
+                    echo ""
+                fi
+                ;;
+            3)
+                print_info "Checking available containerd.io versions..."
+                rm get-docker.sh
+
+                # Update package cache
+                sudo apt update
+
+                # Show available versions
+                echo ""
+                print_info "Available containerd.io versions:"
+                apt-cache madison containerd.io | head -10
+                echo ""
+
+                read -p "Enter specific version (e.g., 1.6.28-1) or 'cancel': " containerd_version
+
+                if [[ "$containerd_version" == "cancel" ]] || [[ -z "$containerd_version" ]]; then
+                    print_info "Cancelled. Choose another option."
+                    echo ""
+                    continue
+                fi
+
+                print_info "Installing Docker with containerd.io=$containerd_version..."
+
+                # Install Docker components with specific containerd version
+                sudo apt install -y \
+                    apt-transport-https \
+                    ca-certificates \
+                    curl \
+                    gnupg \
+                    lsb-release
+
+                # Add Docker's GPG key
+                sudo mkdir -p /etc/apt/keyrings
+                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+                # Add Docker repository
+                echo \
+                  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+                  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+                sudo apt update
+
+                # Install with specific containerd version
+                if sudo apt install -y containerd.io=$containerd_version docker-ce docker-ce-cli docker-buildx-plugin docker-compose-plugin; then
+                    print_info "✓ Docker installed: $(docker --version)"
+                    return 0
+                else
+                    print_error "Installation failed. Try another option."
+                    echo ""
+                fi
+                ;;
+            4)
+                print_warning "Skipping Docker installation"
+                rm get-docker.sh 2>/dev/null || true
+                return 1
+                ;;
+            *)
+                print_error "Invalid option. Please choose 1-4."
+                echo ""
+                ;;
+        esac
+    done
 }
 
 ################################################################################
