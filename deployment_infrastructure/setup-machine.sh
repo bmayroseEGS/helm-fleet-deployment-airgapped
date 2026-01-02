@@ -439,6 +439,66 @@ clone_repository() {
 }
 
 ################################################################################
+# Configure kubectl/k3s access
+################################################################################
+configure_kubectl() {
+    print_header "Configuring kubectl/k3s Access"
+
+    # Check if k3s is installed
+    if [ ! -f /etc/rancher/k3s/k3s.yaml ]; then
+        print_info "k3s config not found at /etc/rancher/k3s/k3s.yaml"
+        print_info "Skipping kubectl configuration (install k3s first)"
+        return 0
+    fi
+
+    print_info "Found k3s configuration"
+    echo ""
+    read -p "Configure kubectl to access k3s cluster? (y/n): " setup_kubectl
+    if [[ ! "$setup_kubectl" =~ ^[Yy]$ ]]; then
+        print_info "Skipping kubectl configuration"
+        return 0
+    fi
+
+    # Create .kube directory
+    mkdir -p ~/.kube
+
+    # Copy k3s config to default kubectl location
+    print_info "Copying k3s config to ~/.kube/config..."
+    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+    sudo chown $(id -u):$(id -g) ~/.kube/config
+
+    # Add KUBECONFIG export to .bashrc if not already present
+    if ! grep -q "KUBECONFIG" ~/.bashrc 2>/dev/null; then
+        print_info "Adding KUBECONFIG to ~/.bashrc..."
+        echo "" >> ~/.bashrc
+        echo "# k3s kubectl configuration" >> ~/.bashrc
+        echo "export KUBECONFIG=~/.kube/config" >> ~/.bashrc
+    fi
+
+    # Export for current session
+    export KUBECONFIG=~/.kube/config
+
+    print_info "✓ kubectl configured"
+    echo ""
+
+    # Test kubectl access
+    if command -v kubectl &> /dev/null; then
+        print_info "Testing kubectl access..."
+        if kubectl get nodes &> /dev/null; then
+            echo "  ✓ kubectl can access k3s cluster:"
+            kubectl get nodes
+        else
+            print_warning "  kubectl installed but cannot access cluster yet"
+            print_info "  You may need to start k3s first"
+        fi
+    else
+        print_info "kubectl not installed. Install with:"
+        print_info "  curl -LO https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        print_info "  sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl"
+    fi
+}
+
+################################################################################
 # Display summary
 ################################################################################
 display_summary() {
@@ -529,6 +589,7 @@ main() {
     verify_docker
     configure_git
     install_additional_tools
+    configure_kubectl
     clone_repository
     display_summary
 
