@@ -166,16 +166,35 @@ install_docker() {
                 # Update package cache
                 sudo apt update
 
-                # Show available versions
+                # Get latest containerd.io version automatically
                 echo ""
-                print_info "Available containerd.io versions:"
-                apt-cache madison containerd.io | head -10
-                echo ""
+                print_info "Detecting latest available containerd.io version..."
+                latest_containerd=$(apt-cache madison containerd.io | head -1 | awk '{print $3}')
 
-                read -p "Enter specific version (e.g., 1.6.28-1) or 'cancel': " containerd_version
+                if [ -n "$latest_containerd" ]; then
+                    print_info "Latest version detected: $latest_containerd"
+                    echo ""
+                    read -p "Install latest version ($latest_containerd)? (y/n): " use_latest
 
-                if [[ "$containerd_version" == "cancel" ]] || [[ -z "$containerd_version" ]]; then
-                    print_info "Cancelled. Choose another option."
+                    if [[ "$use_latest" =~ ^[Yy]$ ]]; then
+                        containerd_version="$latest_containerd"
+                    else
+                        # Show available versions for manual selection
+                        echo ""
+                        print_info "Available containerd.io versions:"
+                        apt-cache madison containerd.io | head -10
+                        echo ""
+
+                        read -p "Enter specific version or 'cancel': " containerd_version
+
+                        if [[ "$containerd_version" == "cancel" ]] || [[ -z "$containerd_version" ]]; then
+                            print_info "Cancelled. Choose another option."
+                            echo ""
+                            continue
+                        fi
+                    fi
+                else
+                    print_error "Could not detect containerd.io versions"
                     echo ""
                     continue
                 fi
