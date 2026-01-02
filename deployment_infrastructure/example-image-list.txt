@@ -1,0 +1,12 @@
+# Elastic Stack Images for Air-gapped Deployment
+# Use this as a reference when running collect-all.sh
+
+# Core Elastic Stack Components
+docker.elastic.co/elasticsearch/elasticsearch:9.2.2
+docker.elastic.co/kibana/kibana:9.2.2
+docker.elastic.co/logstash/logstash:9.2.2
+docker.elastic.co/elastic-agent/elastic-agent:9.2.3
+
+# Supporting Images
+registry:2
+busybox:1.35

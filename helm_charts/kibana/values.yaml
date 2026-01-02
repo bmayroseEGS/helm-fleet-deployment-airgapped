@@ -1,0 +1,97 @@
+# Default values for kibana
+# This is a YAML-formatted file for air-gapped deployment
+
+# Image configuration - uses local registry
+image:
+  registry: localhost:5000
+  repository: kibana/kibana
+  tag: "9.2.2"
+  pullPolicy: IfNotPresent
+
+# Replicas
+replicas: 1
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+# Elasticsearch configuration
+elasticsearchHosts: "http://elasticsearch-master:9200"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 5601
+  annotations: {}
+
+# Kibana configuration
+kibanaConfig:
+  kibana.yml: |
+    server.host: 0.0.0.0
+    server.name: kibana
+    elasticsearch.hosts: ["${ELASTICSEARCH_HOSTS}"]
+    elasticsearch.username: "${ELASTICSEARCH_USERNAME}"
+    elasticsearch.password: "${ELASTICSEARCH_PASSWORD}"
+
+    # Monitoring
+    monitoring.ui.container.elasticsearch.enabled: true
+
+    # Security settings
+    xpack.encryptedSavedObjects.encryptionKey: "min-32-byte-long-strong-encryption-key-for-saved-objects"
+
+# Environment variables
+extraEnvs:
+  - name: ELASTICSEARCH_HOSTS
+    value: "http://elasticsearch-master:9200"
+  - name: ELASTICSEARCH_USERNAME
+    value: "kibana_system"
+  - name: ELASTICSEARCH_PASSWORD
+    value: "kibana"
+  - name: SERVER_HOST
+    value: "0.0.0.0"
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Health checks
+healthCheckPath: "/api/status"
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /api/status
+    port: 5601
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /api/status
+    port: 5601
+  initialDelaySeconds: 60
+  periodSeconds: 20
+  timeoutSeconds: 5

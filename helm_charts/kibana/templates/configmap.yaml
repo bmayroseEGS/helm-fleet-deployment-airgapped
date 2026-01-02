@@ -1,0 +1,15 @@
+{{- if .Values.kibanaConfig }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.clusterName | default "kibana" }}-config
+  labels:
+    app: {{ .Values.clusterName | default "kibana" }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name }}
+data:
+{{- range $key, $value := .Values.kibanaConfig }}
+  {{ $key }}: |
+{{ $value | indent 4 }}
+{{- end }}
+{{- end }}

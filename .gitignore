@@ -1,0 +1,5 @@
+# This .gitignore is appropriate for repositories deployed to GitHub 
+
+
+
+.DS_Store

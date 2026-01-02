@@ -1,0 +1,132 @@
+# Default values for fleet-server
+# This is a YAML-formatted file for air-gapped deployment
+
+# Image configuration - uses local registry
+image:
+  registry: localhost:5000
+  repository: elastic-agent/elastic-agent
+  tag: "9.2.3"
+  pullPolicy: IfNotPresent
+
+# Replicas
+replicas: 1
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: "100m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+# Elasticsearch configuration
+elasticsearchHosts: "http://elasticsearch-master:9200"
+kibanaHosts: "http://kibana:5601"
+
+# Fleet Server configuration
+fleetServer:
+  enabled: true
+  # Port for Fleet Server
+  port: 8220
+  # Insecure mode (disable TLS for testing)
+  insecure: true
+
+# Service configuration
+service:
+  type: ClusterIP
+  # Fleet Server port
+  port: 8220
+  # Fleet enrollment port (same as server port)
+  annotations: {}
+
+# Fleet enrollment token
+# In production, this should be generated from Kibana and stored as a secret
+# For air-gapped setup, you'll generate this after initial Kibana setup
+fleetEnrollmentToken: ""
+
+# Fleet Server policy ID
+# Will be auto-generated if not specified
+fleetServerPolicyId: "fleet-server-policy"
+
+# Environment variables
+extraEnvs:
+  - name: FLEET_SERVER_ENABLE
+    value: "true"
+  - name: FLEET_SERVER_INSECURE_HTTP
+    value: "true"
+  - name: FLEET_SERVER_HOST
+    value: "0.0.0.0"
+  - name: FLEET_SERVER_PORT
+    value: "8220"
+  - name: FLEET_URL
+    value: "http://fleet-server:8220"
+  - name: KIBANA_FLEET_SETUP
+    value: "true"
+  - name: KIBANA_FLEET_HOST
+    value: "http://kibana:5601"
+  - name: KIBANA_FLEET_USERNAME
+    value: "elastic"
+  - name: KIBANA_FLEET_PASSWORD
+    value: "elastic"
+  - name: ELASTICSEARCH_HOST
+    value: "http://elasticsearch-master:9200"
+  - name: FLEET_SERVER_POLICY_ID
+    value: "fleet-server-policy"
+  - name: FLEET_SERVER_ELASTICSEARCH_INSECURE
+    value: "true"
+
+# Service token from Kubernetes secret (created by Elasticsearch hook job)
+extraEnvsFrom:
+  - secretRef:
+      name: fleet-server-token
+
+# Security context
+securityContext:
+  runAsUser: 0  # Fleet Server needs root for some operations
+  privileged: false
+  capabilities:
+    add:
+      - NET_BIND_SERVICE
+
+# Pod security context
+podSecurityContext:
+  runAsUser: 0
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Health checks
+readinessProbe:
+  httpGet:
+    path: /api/status
+    port: 8220
+    scheme: HTTP
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: /api/status
+    port: 8220
+    scheme: HTTP
+  initialDelaySeconds: 90
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Persistence for Fleet Server data
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce

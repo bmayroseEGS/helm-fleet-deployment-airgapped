@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.clusterName | default "kibana" }}
+  labels:
+    app: {{ .Values.clusterName | default "kibana" }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.clusterName | default "kibana" }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.clusterName | default "kibana" }}
+        release: {{ .Release.Name }}
+    spec:
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+{{ toYaml .Values.podSecurityContext | indent 8 }}
+      {{- end }}
+      containers:
+      - name: kibana
+        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        {{- if .Values.extraEnvs }}
+{{ toYaml .Values.extraEnvs | indent 8 }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: 5601
+          protocol: TCP
+        {{- if .Values.resources }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        {{- end }}
+        {{- if .Values.readinessProbe }}
+        readinessProbe:
+{{ toYaml .Values.readinessProbe | indent 10 }}
+        {{- end }}
+        {{- if .Values.livenessProbe }}
+        livenessProbe:
+{{ toYaml .Values.livenessProbe | indent 10 }}
+        {{- end }}
+        {{- if .Values.kibanaConfig }}
+        volumeMounts:
+        - name: kibana-config
+          mountPath: /usr/share/kibana/config/kibana.yml
+          subPath: kibana.yml
+        {{- end }}
+      {{- if .Values.kibanaConfig }}
+      volumes:
+      - name: kibana-config
+        configMap:
+          name: {{ .Values.clusterName | default "kibana" }}-config
+      {{- end }}

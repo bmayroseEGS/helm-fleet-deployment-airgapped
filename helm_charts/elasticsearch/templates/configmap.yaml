@@ -1,0 +1,15 @@
+{{- if .Values.esConfig }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.clusterName }}-config
+  labels:
+    app: {{ .Values.clusterName }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+data:
+  {{- range $key, $value := .Values.esConfig }}
+  {{ $key }}: |
+    {{- $value | nindent 4 }}
+  {{- end }}
+{{- end }}

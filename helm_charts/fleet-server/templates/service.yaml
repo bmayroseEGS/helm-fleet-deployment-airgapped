@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: fleet-server
+    release: {{ .Release.Name }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - name: fleet
+    port: {{ .Values.service.port }}
+    targetPort: fleet
+    protocol: TCP
+  selector:
+    app: fleet-server
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-server-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: fleet-server
+    release: {{ .Release.Name }}
+spec:
+  clusterIP: None
+  ports:
+  - name: fleet
+    port: {{ .Values.service.port }}
+    targetPort: fleet
+    protocol: TCP
+  selector:
+    app: fleet-server

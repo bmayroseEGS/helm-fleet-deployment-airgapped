@@ -1,0 +1,110 @@
+# Default values for elasticsearch
+# This is a YAML-formatted file for air-gapped deployment
+
+# Image configuration - uses local registry
+image:
+  registry: localhost:5000
+  repository: elasticsearch/elasticsearch
+  tag: "9.2.2"
+  pullPolicy: IfNotPresent
+
+# Cluster configuration
+clusterName: "elasticsearch"
+nodeGroup: "master"
+
+# Replicas - start with 1 for testing, scale to 3 for production
+replicas: 1
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "2000m"
+    memory: "4Gi"
+
+# Elasticsearch roles for this node group
+roles:
+  - master
+  - data
+  - ingest
+
+# Persistence configuration
+persistence:
+  enabled: true
+  size: 30Gi
+  storageClass: ""  # Use default storage class
+
+# JVM heap size (should be 50% of memory limit)
+esJavaOpts: "-Xmx2g -Xms2g"
+
+# Elasticsearch configuration
+esConfig:
+  elasticsearch.yml: |
+    cluster.name: ${CLUSTER_NAME}
+    network.host: 0.0.0.0
+
+    # Discovery configuration for single-node or multi-node
+    discovery.type: single-node
+
+    # Security settings (enabled for Fleet)
+    xpack.security.enabled: true
+    xpack.security.enrollment.enabled: false
+    xpack.security.http.ssl.enabled: false
+    xpack.security.transport.ssl.enabled: false
+
+    # Anonymous access for bootstrapping - allows initial password setup
+    # This enables unauthenticated requests to set passwords on first boot
+    xpack.security.authc.anonymous.username: anonymous
+    xpack.security.authc.anonymous.roles: superuser
+    xpack.security.authc.anonymous.authz_exception: false
+
+# Service configuration
+service:
+  type: ClusterIP
+  httpPort: 9200
+  transportPort: 9300
+  nodePort: ""
+  annotations: {}
+
+# Service for headless service (StatefulSet)
+headlessService:
+  annotations: {}
+
+# Environment variables
+extraEnvs:
+  - name: CLUSTER_NAME
+    value: "elasticsearch"
+  - name: node.name
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+# Init containers to set proper permissions and kernel parameters
+sysctlInitContainer:
+  enabled: true
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate

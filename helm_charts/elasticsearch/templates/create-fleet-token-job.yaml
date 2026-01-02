@@ -1,0 +1,123 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.clusterName }}-create-fleet-token
+  labels:
+    app: {{ .Values.clusterName }}
+    component: create-fleet-token
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.clusterName }}
+        component: create-fleet-token
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ .Values.clusterName }}-token-creator
+      containers:
+      - name: create-fleet-token
+        image: bitnami/kubectl:latest
+        command:
+          - sh
+          - -c
+          - |
+            set -e
+
+            echo "Waiting for Elasticsearch to be ready..."
+            until curl -sf -u elastic:elastic "http://{{ .Values.clusterName }}-{{ .Values.nodeGroup }}:9200/_cluster/health" >/dev/null 2>&1; do
+              echo "Waiting for Elasticsearch..."
+              sleep 5
+            done
+
+            echo "Creating Fleet Server service token..."
+
+            # Delete existing token if it exists (ignore errors)
+            curl -s -X DELETE \
+              -u elastic:elastic \
+              "http://{{ .Values.clusterName }}-{{ .Values.nodeGroup }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-token" || true
+
+            echo "Creating new service token..."
+
+            # Create the service token
+            TOKEN_RESPONSE=$(curl -s -X POST \
+              -u elastic:elastic \
+              "http://{{ .Values.clusterName }}-{{ .Values.nodeGroup }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-token")
+
+            echo "Token creation response: $TOKEN_RESPONSE"
+
+            # Extract the token value from the response
+            TOKEN_VALUE=$(echo "$TOKEN_RESPONSE" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+
+            if [ -z "$TOKEN_VALUE" ]; then
+              echo "Failed to extract token value from response"
+              echo "Full response: $TOKEN_RESPONSE"
+              exit 1
+            fi
+
+            echo "Fleet Server service token created successfully"
+
+            # Create or update the Kubernetes secret with the token
+            # Use ELASTICSEARCH_SERVICE_TOKEN as the key name (required by Fleet Server)
+            kubectl create secret generic fleet-server-token \
+              --from-literal=ELASTICSEARCH_SERVICE_TOKEN="$TOKEN_VALUE" \
+              --namespace={{ .Release.Namespace }} \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+            echo "Fleet Server token stored in Kubernetes secret 'fleet-server-token'"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.clusterName }}-token-creator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.clusterName }}
+    component: token-creator
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.clusterName }}-token-creator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.clusterName }}
+    component: token-creator
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.clusterName }}-token-creator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.clusterName }}
+    component: token-creator
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.clusterName }}-token-creator
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.clusterName }}-token-creator
+  namespace: {{ .Release.Namespace }}

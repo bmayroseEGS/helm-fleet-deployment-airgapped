@@ -1,0 +1,64 @@
+---
+# Service for client access
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.clusterName }}-{{ .Values.nodeGroup }}
+  labels:
+    app: {{ .Values.clusterName }}
+    component: {{ .Values.nodeGroup }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+  {{- if .Values.service.annotations }}
+  annotations:
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+  {{- end }}
+  ports:
+  - name: http
+    port: {{ .Values.service.httpPort }}
+    targetPort: 9200
+    protocol: TCP
+    {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+    nodePort: {{ .Values.service.nodePort }}
+    {{- end }}
+  - name: transport
+    port: {{ .Values.service.transportPort }}
+    targetPort: 9300
+    protocol: TCP
+  selector:
+    app: {{ .Values.clusterName }}
+    component: {{ .Values.nodeGroup }}
+---
+# Headless service for StatefulSet DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.clusterName }}-{{ .Values.nodeGroup }}-headless
+  labels:
+    app: {{ .Values.clusterName }}
+    component: {{ .Values.nodeGroup }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+  {{- if .Values.headlessService.annotations }}
+  annotations:
+    {{- toYaml .Values.headlessService.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+  - name: http
+    port: {{ .Values.service.httpPort }}
+    targetPort: 9200
+    protocol: TCP
+  - name: transport
+    port: {{ .Values.service.transportPort }}
+    targetPort: 9300
+    protocol: TCP
+  selector:
+    app: {{ .Values.clusterName }}
+    component: {{ .Values.nodeGroup }}

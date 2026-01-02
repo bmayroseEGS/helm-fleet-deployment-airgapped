@@ -1,0 +1,15 @@
+{{- if .Values.logstashPipeline }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.clusterName | default "logstash" }}-pipeline
+  labels:
+    app: {{ .Values.clusterName | default "logstash" }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name }}
+data:
+{{- range $key, $value := .Values.logstashPipeline }}
+  {{ $key }}: |
+{{ $value | indent 4 }}
+{{- end }}
+{{- end }}

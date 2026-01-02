@@ -1,0 +1,127 @@
+# Default values for logstash
+# This is a YAML-formatted file for air-gapped deployment
+
+# Image configuration - uses local registry
+image:
+  registry: localhost:5000
+  repository: logstash/logstash
+  tag: "9.2.2"
+  pullPolicy: IfNotPresent
+
+# Replicas
+replicas: 1
+
+# Resource limits and requests
+resources:
+  requests:
+    cpu: "100m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+# Elasticsearch configuration
+elasticsearchHosts: "http://elasticsearch-master:9200"
+
+# Service configuration - for beats input
+service:
+  type: ClusterIP
+  ports:
+    - name: beats
+      port: 5044
+      targetPort: 5044
+      protocol: TCP
+    - name: http
+      port: 9600
+      targetPort: 9600
+      protocol: TCP
+  annotations: {}
+
+# Logstash configuration
+logstashConfig:
+  logstash.yml: |
+    api.http.host: 0.0.0.0
+    xpack.monitoring.enabled: true
+    xpack.monitoring.elasticsearch.hosts: ["${ELASTICSEARCH_HOSTS}"]
+
+# Logstash pipeline configuration
+logstashPipeline:
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+      http {
+        port => 8080
+        codec => json
+      }
+    }
+
+    filter {
+      # Add filters here as needed
+      if [type] == "syslog" {
+        grok {
+          match => { "message" => "%{SYSLOGLINE}" }
+        }
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["${ELASTICSEARCH_HOSTS}"]
+        index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+      }
+      # Uncomment for debugging
+      # stdout { codec => rubydebug }
+    }
+
+# Environment variables
+extraEnvs:
+  - name: ELASTICSEARCH_HOSTS
+    value: "http://elasticsearch-master:9200"
+  - name: LS_JAVA_OPTS
+    value: "-Xmx512m -Xms512m"
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+# Persistence for queue
+persistence:
+  enabled: false
+  size: 5Gi
+  storageClass: ""  # Use default storage class
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /
+    port: 9600
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /
+    port: 9600
+  initialDelaySeconds: 90
+  periodSeconds: 20
+  timeoutSeconds: 5

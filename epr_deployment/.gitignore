@@ -1,0 +1,19 @@
+# Generated files and directories
+images/
+*.tar
+*.tar.gz
+image-list.txt
+
+# Docker volumes
+registry-data/
+
+# Backup files
+*-backup.tar.gz
+*.bak
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

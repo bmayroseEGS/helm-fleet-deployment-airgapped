@@ -1,0 +1,44 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your Logstash instance has been deployed!
+
+To check the status of your deployment:
+
+  kubectl get pods -l app={{ .Values.clusterName | default "logstash" }}
+
+To check the services:
+
+  kubectl get svc -l app={{ .Values.clusterName | default "logstash" }}
+
+Logstash is configured to send data to Elasticsearch at:
+  {{ .Values.elasticsearchHosts }}
+
+Logstash is listening on the following ports:
+  - Beats input: 5044
+  - HTTP input: 8080
+  - Monitoring API: 9600
+
+To send data via HTTP:
+
+  # Port-forward to access locally
+  kubectl port-forward svc/{{ .Values.clusterName | default "logstash" }} 8080:8080
+
+  # Send a test event
+  curl -X POST http://localhost:8080 -H 'Content-Type: application/json' -d '{"message":"test event"}'
+
+To check Logstash metrics:
+
+  # Port-forward to access monitoring API
+  kubectl port-forward svc/{{ .Values.clusterName | default "logstash" }} 9600:9600
+
+  # Check node stats
+  curl http://localhost:9600/_node/stats?pretty
+
+To view logs:
+
+  kubectl logs -l app={{ .Values.clusterName | default "logstash" }} -f
+
+{{- if eq (int .Values.replicas) 1 }}
+
+NOTE: Running with a single replica. For production, consider scaling to 2+ instances.
+{{- end }}

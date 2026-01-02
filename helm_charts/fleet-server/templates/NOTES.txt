@@ -1,0 +1,30 @@
+Fleet Server has been deployed!
+
+To verify the deployment:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app=fleet-server
+
+To check Fleet Server status:
+
+  kubectl logs -n {{ .Release.Namespace }} -l app=fleet-server -f
+
+To access Fleet Server API:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/fleet-server 8220:8220
+
+  # Test the API
+  curl http://localhost:8220/api/status
+
+Fleet Server Configuration:
+  - Elasticsearch: {{ .Values.elasticsearchHosts }}
+  - Kibana: {{ .Values.kibanaHosts }}
+  - Fleet URL: http://fleet-server:{{ .Values.fleetServer.port }}
+
+Next Steps:
+  1. Access Kibana and navigate to Fleet settings
+  2. Configure Fleet Server URL: http://fleet-server:8220
+  3. Generate enrollment tokens for Elastic Agents
+  4. Deploy Elastic Agents using the enrollment token
+
+For more information:
+  https://www.elastic.co/guide/en/fleet/current/fleet-server.html

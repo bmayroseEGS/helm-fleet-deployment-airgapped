@@ -1,0 +1,14 @@
+apiVersion: v2
+name: fleet-server
+description: Helm chart for Elastic Fleet Server (air-gapped deployment)
+type: application
+version: 1.0.0
+appVersion: "9.2.2"
+keywords:
+  - elastic
+  - fleet
+  - fleet-server
+  - elastic-agent
+  - monitoring
+maintainers:
+  - name: Elastic DevOps Team

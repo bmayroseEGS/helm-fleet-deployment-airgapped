@@ -1,0 +1,26 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your Kibana instance has been deployed!
+
+To check the status of your deployment:
+
+  kubectl get pods -l app={{ .Values.clusterName | default "kibana" }}
+
+To check the service:
+
+  kubectl get svc {{ .Values.clusterName | default "kibana" }}
+
+To access Kibana:
+
+  # Port-forward to access locally
+  kubectl port-forward svc/{{ .Values.clusterName | default "kibana" }} 5601:5601
+
+  # Then access at: http://localhost:5601
+
+Kibana is configured to connect to Elasticsearch at:
+  {{ .Values.elasticsearchHosts }}
+
+{{- if eq (int .Values.replicas) 1 }}
+
+NOTE: Running with a single replica. For production, consider scaling to 2+ instances.
+{{- end }}

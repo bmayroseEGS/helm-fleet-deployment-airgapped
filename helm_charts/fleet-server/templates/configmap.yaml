@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fleet-server-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: fleet-server
+    release: {{ .Release.Name }}
+data:
+  fleet-setup.yml: |
+    # Fleet Server configuration
+    outputs:
+      default:
+        type: elasticsearch
+        hosts:
+          - {{ .Values.elasticsearchHosts }}
+
+    # Fleet Server settings
+    fleet:
+      enabled: true
+      kibana:
+        host: {{ .Values.kibanaHosts }}
+      agent:
+        id: fleet-server

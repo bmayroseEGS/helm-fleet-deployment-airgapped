@@ -1,0 +1,37 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your Elasticsearch cluster has been deployed!
+
+To check the status of your cluster:
+
+  kubectl get pods -l app={{ .Values.clusterName }}
+
+To check the services:
+
+  kubectl get svc -l app={{ .Values.clusterName }}
+
+To access Elasticsearch:
+
+  # Port-forward to access locally
+  kubectl port-forward svc/{{ .Values.clusterName }}-{{ .Values.nodeGroup }} 9200:9200
+
+  # Then access at: http://localhost:9200
+
+To check cluster health:
+
+  # After port-forwarding
+  curl http://localhost:9200/_cluster/health?pretty
+
+To scale your cluster (production):
+
+  helm upgrade {{ .Release.Name }} . --set replicas=3
+
+{{- if not .Values.persistence.enabled }}
+
+WARNING: Persistence is disabled! Data will be lost if pods are deleted.
+{{- end }}
+
+{{- if eq (int .Values.replicas) 1 }}
+
+NOTE: Running with a single replica. For production, consider scaling to 3+ nodes.
+{{- end }}
