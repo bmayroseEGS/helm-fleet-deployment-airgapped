@@ -169,10 +169,18 @@ install_docker() {
                 # Get latest containerd.io version automatically
                 echo ""
                 print_info "Detecting latest available containerd.io version..."
+
+                # Get top 3 versions as fallback options
                 latest_containerd=$(apt-cache madison containerd.io | head -1 | awk '{print $3}')
+                second_latest=$(apt-cache madison containerd.io | sed -n '2p' | awk '{print $3}')
 
                 if [ -n "$latest_containerd" ]; then
                     print_info "Latest version detected: $latest_containerd"
+
+                    # Note: apt-cache may show versions that don't actually exist yet
+                    if [ -n "$second_latest" ]; then
+                        echo "         Second latest: $second_latest"
+                    fi
                     echo ""
                     read -p "Install latest version ($latest_containerd)? (y/n): " use_latest
 
@@ -225,6 +233,23 @@ install_docker() {
                     print_info "✓ Docker installed: $(docker --version)"
                     return 0
                 else
+                    # If installation failed and we have a second-latest version, offer to try it
+                    if [ -n "$second_latest" ] && [ "$containerd_version" = "$latest_containerd" ]; then
+                        echo ""
+                        print_warning "Installation of $containerd_version failed (package may not exist yet)"
+                        print_info "Second latest version available: $second_latest"
+                        echo ""
+                        read -p "Try installing $second_latest instead? (y/n): " try_second
+
+                        if [[ "$try_second" =~ ^[Yy]$ ]]; then
+                            print_info "Installing Docker with containerd.io=$second_latest..."
+                            if sudo apt install -y containerd.io=$second_latest docker-ce docker-ce-cli docker-buildx-plugin docker-compose-plugin; then
+                                print_info "✓ Docker installed: $(docker --version)"
+                                return 0
+                            fi
+                        fi
+                    fi
+
                     print_error "Installation failed. Try another option."
                     echo ""
                 fi
