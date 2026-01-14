@@ -89,11 +89,52 @@ Expected response when healthy:
 {"name":"fleet-server","status":"HEALTHY"}
 ```
 
-## Step 6: Verify in Kibana
+## Step 6: Fix Elasticsearch Output Configuration (IMPORTANT)
+
+After Fleet Server deploys, you must update the Elasticsearch output configuration to fix a common issue where Fleet Server's internal monitoring tries to connect to `localhost:9200` instead of the Kubernetes service.
+
+**Symptoms of this issue:**
+- Fleet Server logs show errors like: `dial tcp 127.0.0.1:9200: connect: connection refused`
+- Fleet Server appears to be running but logs show continuous connection errors
+
+**Fix via Kibana:**
+
+1. **Navigate to Fleet Outputs**
+   - Open Kibana: http://localhost:5601
+   - Go to **Management** → **Fleet** → **Settings**
+   - Click on **Outputs** tab
+
+2. **Edit the Default Output**
+   - Click **Edit** on the `default` output
+   - Verify the following settings:
+     - **Name**: `default`
+     - **Type**: `Elasticsearch`
+     - **Hosts**: `["http://elasticsearch-master:9200"]` (NOT `localhost:9200`)
+     - **Advanced YAML configuration**:
+       ```yaml
+       ssl.verification_mode: none
+       ```
+
+3. **Save and Apply**
+   - Click **Save and apply settings**
+   - Fleet Server will automatically pick up the new configuration
+   - Monitor the Fleet Server logs - the connection errors should stop:
+     ```bash
+     kubectl logs -n elastic -l app=fleet-server -f
+     ```
+
+**Why this is necessary:**
+
+The Fleet Server's internal monitoring components are initially configured to use `localhost:9200` for the Elasticsearch connection. In a Kubernetes environment, this doesn't work because Elasticsearch runs in a separate pod. The correct endpoint is the Kubernetes service name `elasticsearch-master:9200`.
+
+This configuration must be done through the Kibana UI because Fleet Server's monitoring output is managed by Fleet policies, which are stored in Elasticsearch and can only be modified through the Fleet UI.
+
+## Step 7: Verify in Kibana
 
 Return to Kibana Fleet UI:
 - Navigate to **Management** → **Fleet** → **Fleet Server**
 - You should see your Fleet Server listed as **Healthy**
+- Check that there are no connection errors in the Fleet Server logs
 
 ## Troubleshooting
 
@@ -103,9 +144,22 @@ Return to Kibana Fleet UI:
 
 **Solution**: The Fleet Server policy hasn't been created in Kibana yet. Complete Step 3 above.
 
-### Connection refused errors
+### Connection refused errors to localhost:9200
 
-**Symptom**: `dial tcp [::1]:9200: connect: connection refused`
+**Symptom**: Fleet Server logs show errors like:
+```
+dial tcp [::1]:9200: connect: connection refused
+dial tcp 127.0.0.1:9200: connect: connection refused
+Error dialing dial tcp 127.0.0.1:9200: connect: connection refused
+```
+
+**Root Cause**: Fleet Server's internal monitoring is configured to use `localhost:9200` instead of the Kubernetes service `elasticsearch-master:9200`.
+
+**Solution**: You MUST update the Elasticsearch output configuration in Kibana (see **Step 6** above). This is a required post-deployment configuration step.
+
+### General connection errors to Elasticsearch
+
+**Symptom**: `connect: connection refused` or `no such host` errors for `elasticsearch-master`
 
 **Solution**: Check that:
 1. Elasticsearch is running: `kubectl get pods -n elastic -l app=elasticsearch`
@@ -113,6 +167,7 @@ Return to Kibana Fleet UI:
 3. DNS resolution works from Fleet Server pod:
    ```bash
    kubectl exec -n elastic fleet-server-0 -- nslookup elasticsearch-master
+   kubectl exec -n elastic fleet-server-0 -- curl http://elasticsearch-master:9200
    ```
 
 ### Service token issues

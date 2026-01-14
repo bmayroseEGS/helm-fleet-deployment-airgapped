@@ -513,6 +513,23 @@ main() {
         print_warning "Deploying Fleet Server without Kibana configuration may result in startup issues"
         deploy_fleet_server
         wait_for_ready "fleet-server"
+
+        echo ""
+        print_warning "IMPORTANT: Post-Deployment Configuration Required"
+        echo ""
+        echo -e "${YELLOW}After Fleet Server starts, you MUST update the Elasticsearch output in Kibana:${NC}"
+        echo ""
+        echo "1. Open Kibana: http://localhost:5601"
+        echo "2. Go to Management → Fleet → Settings → Outputs"
+        echo "3. Edit the 'default' output"
+        echo "4. Set Hosts to: http://elasticsearch-master:9200"
+        echo "5. Click 'Save and apply settings'"
+        echo ""
+        echo -e "${RED}Without this step, Fleet Server will show connection errors to localhost:9200${NC}"
+        echo ""
+        echo "For detailed instructions, see: docs/FLEET_SETUP.md (Step 6)"
+        echo ""
+        read -p "Press Enter to continue..."
     else
         print_info "Skipping Fleet Server deployment - configure Kibana first, then run:"
         echo -e "  ${YELLOW}helm install fleet-server ./fleet-server --namespace elastic${NC}"
@@ -527,7 +544,9 @@ main() {
     echo -e "${GREEN}Next Steps:${NC}"
     echo "  1. Configure Fleet in Kibana (see docs/FLEET_SETUP.md)"
     echo "  2. Deploy Fleet Server after Kibana configuration"
-    echo "  3. Enroll Elastic Agents to Fleet Server"
+    echo -e "  3. ${RED}IMPORTANT:${NC} After Fleet Server deploys, fix Elasticsearch output in Kibana"
+    echo "     (Fleet → Settings → Outputs → Edit 'default' → Set hosts to http://elasticsearch-master:9200)"
+    echo "  4. Enroll Elastic Agents to Fleet Server"
 }
 
 # Run main
